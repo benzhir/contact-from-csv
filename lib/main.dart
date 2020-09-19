@@ -1,12 +1,20 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:load/load.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'contact_list.dart';
 
 void main() {
-  runApp(MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  runApp(LoadingProvider(
+    themeData: LoadingThemeData(
+      // tapDismiss: false,
+    ),
+      child: MyApp(),
+  ));
 }
 
 class MyApp extends StatelessWidget {
@@ -86,7 +94,7 @@ class _AttachCsvFileState extends State<AttachCsvFile> {
   Future<void> _attachCsv() async {
     FilePickerResult result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      //allowedExtensions: ['csv', 'pdf'],
+      allowedExtensions: ['csv', 'xlsx'],
       allowMultiple: false
     );
     if(result != null){

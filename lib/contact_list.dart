@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contact/contacts.dart';
+import 'package:load/load.dart';
+import 'package:read_csv/send_sms.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ContactModelList extends StatefulWidget {
@@ -20,7 +24,7 @@ class _ContactModelListState extends State<ContactModelList> {
   @override
   void initState() {
     super.initState();
-    tt();
+    readXlsxFile();
   }
 
   _launchURL(String url) async {
@@ -31,19 +35,24 @@ class _ContactModelListState extends State<ContactModelList> {
     }
   }
 
+  void showAndDelayDismiss(
+      [Duration duration = const Duration(seconds: 2)]) async {
+    var future = await showLoadingDialog();
+    Future.delayed(duration, () {
+      future.dismiss();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return  Scaffold(
       appBar: AppBar(
-        title: Text('Load and View Csv data'),
+        title: Text('${data.length} Contacts'),
         actions: [
           Row(
             children: [
               data.length > 0 ?
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: IconButton(icon: Icon(Icons.add_call, color: Colors.white,), onPressed: () => addAllContacts()),
-              )
+              IconButton(icon: Icon(Icons.add_call, color: Colors.white,), onPressed: () => addAllContacts())
               : Container(),
             ],
           )
@@ -64,19 +73,21 @@ class _ContactModelListState extends State<ContactModelList> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
                     // Name
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(row.name),
-                        SizedBox(
-                          height: 4,
-                        ),
-                        Text(row.phone),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(row.name),
+                          SizedBox(
+                            height: 4,
+                          ),
+                          Text(row.phone),
+                        ],
+                      ),
                     ),
                     Row(
                       children: [
-                        IconButton(icon: Icon(Icons.call, color: Colors.grey,), onPressed: () => _launchURL('tel:0651658469')),
+                        IconButton(icon: Icon(Icons.call, color: Colors.grey,), onPressed: () => _launchURL('tel:${row.phone}')),
                       ],
                     )
                     //Coach
@@ -88,19 +99,53 @@ class _ContactModelListState extends State<ContactModelList> {
               .toList(),
         ) : Center(child: Text("Empty data"),),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          if(data.length > 0){
+            List<String> recipents = [];
+            data.forEach((e) => recipents.add(e.phone));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => SendSms(recipents: recipents,)),
+            );
+          }else{
+            showAlertDialog(context, 'Error', 'List Contacts is empty');
+          }
+        },
+        icon: Icon(Icons.sms),
+        label: Text("Send sms"),
+      ),
     );
   }
 
   Future<void> addAllContacts() async {
+    var future = await showLoadingDialog();
+    Future.delayed(const Duration(seconds: 2), () async {
+      data.forEach((element) async {
+        await Contacts.addContact(new Contact(
+          //keys: new Random().nextInt(1000.toString()),
+          familyName: element.name,
+          phones: [new Item(
+              label: 'mobile',
+              value: element.phone
+          )],
+        ));
+      });
+    });
+    future.dismiss();
+    showAlertDialog(context, 'Success', '${data.length} Contacts ont été créés');
+  }
+
+  Future<void> deleteContacts() async {
     data.forEach((element) async {
-      await Contacts.addContact(new Contact(
-        familyName: element.name,
+      await Contacts.deleteContact(new Contact(
+        displayName: element.name,
         phones: [new Item(
+            label: 'mobile',
             value: element.phone
         )],
       ));
     });
-    showAlertDialog(context, 'Success', '${data.length} Contacts ont été créés');
   }
 
   void tt() {
@@ -130,6 +175,27 @@ class _ContactModelListState extends State<ContactModelList> {
         });
 
         });
+  }
+
+  void readXlsxFile(){
+    setState(() {
+      _loading = true;
+    });
+    var bytes = File(widget.path).readAsBytesSync();
+    var excel = Excel.decodeBytes(bytes);
+
+    for (var table in excel.tables.keys) {
+      print(table); //sheet Name
+      print(excel.tables[table].maxCols);
+      print(excel.tables[table].maxRows);
+      for (var row in excel.tables[table].rows) {
+        print("$row");
+        data.add(new ContactModel(row[0].toString(), row[1].toString()));
+      }
+    }
+    setState(() {
+      _loading = false;
+    });
   }
 
   showAlertDialog(BuildContext context, String text, String content) {

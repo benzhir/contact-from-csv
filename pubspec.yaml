@@ -27,9 +27,12 @@ dependencies:
   path_provider:
   csv: ^4.0.3
   file_picker: ^2.0.0
-  url_launcher: ^5.6.0
-  flutter_contact: ^0.6.3
+  url_launcher:
+  flutter_contact: ^0.6.4
   permission_handler: ^5.0.1+1
+  sms: ^0.2.4
+  load: ^0.1.6
+  excel: ^1.1.5
 
 
 
